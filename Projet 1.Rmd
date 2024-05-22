@@ -220,13 +220,13 @@ The difference of AIC is higher than the difference of BIC, so we choose ARMA(1,
 
 ### 5. Write the ARIMA(p,d,q) model for the chosen series.
 
-As the first difference gives us an ARMA(1,2), we will choose for the log(IPI) a SARIMA(1,1,2).
+As the first difference gives us an ARMA(1,2), we will choose for the log(IPI) a ARIMA(1,1,2).
 ```{r}
 # To check this choice, we'll observe the validity and significance :
 estimation <- arima(valeurs_mensuelles$log_value,c(1,1,2))
 arimafit(estimation)
 ```
-We observe that the series is well fitted with a SARIMA(1,1,2).
+We observe that the series is well fitted with a ARIMA(1,1,2).
 
 
 ## Part 3 : Prediction
