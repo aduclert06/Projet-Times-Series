@@ -239,8 +239,9 @@ arima112 = arima(valeurs_mensuelles$log_value, c(1, 1, 2))
 ```
 
 ```{r}
-# We represent the confidence region :
+# We generate the previsions :
 forecast <- forecast(arima112, h=2)
+# We represent the confidence region :
 plot(forecast, xlim = c(1990, 2024+4/12))
 ```
 ```{r}
