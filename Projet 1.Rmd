@@ -28,6 +28,8 @@ library(ggplot2)
 install.packages('fUnitRoots')
 library(fUnitRoots)
 
+install.packages('forecast')
+library(forecast)
 ```
 
 We print the first lines of the files that we have :
@@ -227,9 +229,24 @@ arimafit(estimation)
 We observe that the series is well fitted with a SARIMA(1,1,2).
 
 
-### Part 3 : Prediction
+## Part 3 : Prediction
 
+### 8. Graphically represent this region for α = 95%. Comment on it.
 
+```{r}
+# We create the ARIMA model associated to the series :
+arima112 = arima(valeurs_mensuelles$log_value, c(1, 1, 2))
+```
+
+```{r}
+# We represent the confidence region :
+forecast <- forecast(arima112, h=2)
+plot(forecast, xlim = c(1990, 2024+4/12))
+```
+```{r}
+# We change the size of the duration represented, to have a better plot : we begin in 2020 :
+plot(forecast, xlim = c(2020, 2024+4/12))
+```
 
 
 
