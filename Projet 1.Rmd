@@ -6,6 +6,10 @@ output:
   pdf_document: default
   html_document: default
 ---
+
+# Linear Time Series Assignment : ARIMA Modelling of a Time Series
+
+First, we load the libraries :
 ```{r}
 install.packages('dplyr')
 library(dplyr)
@@ -26,14 +30,15 @@ library(fUnitRoots)
 
 ```
 
+We print the first lines of the files that we have :
 ```{r}
 head(caractéristiques)
 ```
-
+We won't use this first file : it only explains the last column of the second file.
 ```{r}
 head(valeurs_mensuelles)
 ```
-
+We notice that the form of the dataset is not usable. So we modify it, in order to have a good dataset.
 ```{r}
 valeurs_mensuelles <- tail(valeurs_mensuelles, -3)
 names(valeurs_mensuelles)[1] <- "V1"  
@@ -41,76 +46,84 @@ valeurs_mensuelles <- separate(valeurs_mensuelles, col = V1, into = c("date", "v
 head(valeurs_mensuelles)
 ```
 
-
-```{r}
-
-dates <- as.yearmon(seq(from=1990,to=2024+2/12,by=1/12))
-value <- zoo(valeurs_mensuelles$value,order.by=rev(dates))
-plot(value,ylim=c(0,800),main="CVS-CJO industrial production index - Hydrocarbon extraction")
-
-```
-
-#ARIMA modelling of a time series
-
 ##Part I : the data
 
-### 1. What does the chosen series represent ? (sector, potential data processing, logarithmic transformation, etc.)
+We plot our time series :
+```{r}
+# We define the vector with the dates :
+dates <- as.yearmon(seq(from=1990,to=2024+2/12,by=1/12))
+# We treat the time series :
+value <- zoo(valeurs_mensuelles$value,order.by=rev(dates))
+# Plot :
+plot(value,ylim=c(0,800),main="Industrial production index - Hydrocarbon extraction")
+```
+
 
 
 ### 2. Transform the series to make it stationary if necessary (differentiate it, correct the deterministic trend, etc.). Thoroughly justify your choices.
 
-
-#The logarithmic transformation, Yt = logXt for Xt > 0, may allow to reduce some nonlinearities
-
+First, we use the logarithmic transformation $Y_t = logX_t$ for $X_t > 0$, to allow to reduce some nonlinearities
 ```{r}
 valeurs_mensuelles$log_value <- zoo(log(as.numeric(valeurs_mensuelles$value)),order.by=rev(dates))
-plot(valeurs_mensuelles$log_value, ylim=c(4,7),main="CVS-CJO industrial production log(index) - Hydrocarbon extraction")
+plot(valeurs_mensuelles$log_value, ylim=c(4,7),main="Industrial production log(index) - Hydrocarbon extraction")
 
 ```
-On remarque que c'est pas stationnaire => on doit la stationnariser avec par ex l'outil de first diff + on remarque pas de saisonalité
+We notice that obviously, the series is not stationnary and there is no seasonality.
+We have to make it become stationnary so we use the first difference tool.
 
 ```{r}
+# We create the vector diff, which contains the difference between the values for each month
 diff <- diff(valeurs_mensuelles$log_value,1)
-plot(diff,ylim=c(-0.7,0.7),main="CVS-CJO industrial production difflog(index) - Hydrocarbon extraction")
-
+# We plot it :
+plot(diff,ylim=c(-0.7,0.7),main="Industrial production difflog(index) - Hydrocarbon extraction")
 ```
+It seems stationnary. We are going to check it with 2 tests : the KPSS test and the Augmented Dickey-Fuller test. We will use these test on the log-series and on the first differentiated series.
 ```{r}
+# Test KPSS on the log-series :
 kpss.test(valeurs_mensuelles$log_value, null="Level")
 ```
-C'est cool on a 1%
+We obtain a low p-value : 1%, so the null hypothesis of the stationnarity of log(IPI) is rejected at the 1% level.
 
 ```{r}
+# Test KPSS on the first difference of the log-series :
 kpss.test(diff, null="Level")
 ```
-On a 10%
+We obtain a p-value of 10% so we do not reject the hypothesis of FD(log(IPI)) being stationnary at level 5%.
 
 
 ```{r}
+# Augmented Dickey-Fuller test on log(IPI)
 adf <- adfTest(valeurs_mensuelles$log_value)
 adf
 ```
-test rejeté au seuil 5%
+The hypothesis of log(IPI) being non stationnary is not rejected at level 5%.
 
-
-On fait le même test sur la série différenciée :
 ```{r}
+# Augmented Dickey-Fuller test on the first difference of the log-series :
 adf <- adfTest(diff)
 adf
 ```
-Test accepté au seuil 5%
+The null hypothesis of FD(log(IPI)) being non staionnary is rejcted at level 1%.
 
 
-### Partie 2
+## Part 2 : ARMA models
 
+### 4. Pick (and justify your choice) an ARMA(p,q) model for your corrected time series $X_t$. Estimate the model parameters and check its validity.
+
+First, we study the empirical autocorrelation function and the empirical partial autocorrelation function.
 ```{r}
+# plot of the autocorrelation function :
 acf(diff,15)
+# plot of the partial autocorrelation function :
 pacf(diff,15)
 ```
-ARMA(p,q) a l'air de bien fitter
-ACF -> q = 0, 1, 2
-PACF -> p = 0, 1, 2, 3, 4
+We notice that the empirical autocorrelation function and the empirical partial autocorrelation function decreasequickly, so an ARMA(p,q) could well fit with the series.
+
+Observing the ACF, we deduce $q_{max} = 2$ so $q \in \{0, 1, 2\}$.
+Observing the PACF, we deduce  $p_{max} = 4$ so $p \in \{0, 1, 2, 3, 4\}$.
 
 ```{r}
+# We adjust the ARMA model for each case :
 arma00 <- arima(diff,c(0,0,0))
 arma01 <- arima(diff,c(0,0,1))
 arma02 <- arima(diff,c(0,0,2))
@@ -132,8 +145,9 @@ arma41 <- arima(diff,c(4,0,1))
 arma42 <- arima(diff,c(4,0,2))
 ```
 
-
+We will check if the residuals are correlated. So we will use the Ljung-Box test for residuals at order 24.
 ```{r}
+# Here is the exemple for the case ARMA(2,1), but the code is the same for the other cases (we just need to change the last line, writing Qtests(armapq$residuals, 24, p+q)) for every (p,q) studied
 Qtests <- function(series, k, fitdf=0) {
 pvals <- apply(matrix(1:k), 1, FUN=function(l) {
 pval <- if (l<=fitdf) NA else Box.test(series, lag=l, type="Ljung-Box", fitdf=fitdf)$p.value
@@ -143,20 +157,23 @@ return(t(pvals))
 }
 Qtests(arma21$residuals, 24, 3)
 ```
-On voit avec les autocorrelations qu'on peut conserver ARMA(0,2), ARMA(1,2), ARMA(2,1), ARMA(2,2), ARMA(3,1), ARMA(3,2), ARMA(4,1) et ARMA(4,2)
+Executing this code for every model, we conclude that we will only keep ARMA(0,2), ARMA(1,2), ARMA(2,1), ARMA(2,2), ARMA(3,1), ARMA(3,2), ARMA(4,1) and ARMA(4,2).
+
+Then, we study the significance of the coefficients.
+To realize this study, we create a function called signif, which takes a model and returns the values obtained and their p-values.
 ```{r}
 signif <- function(estim){coef <- estim$coef
 se <- sqrt(diag(estim$var.coef))
 t <- coef/se
 pval <- (1-pnorm(abs(t)))*2
 return(rbind(coef,se,pval))}
-
+# We execute the function for the case MA(2) :
 signif(arma02)
 ```
+We use the function for each of the 8 cases that we had kept.
+Looking at the significance of the coefficients, we only keep MA(2), ARMA(1,2) and ARMA(2,1).
 
-En regardant la significativité des coefficients, on garde MA(2), ARMA(1,2) et ARMA(2,1).
-
-
+Then we create the function arimafit
 ```{r}
 arimafit <- function(estim){
 adjust <- round(signif(estim),3)
@@ -168,8 +185,7 @@ print(adjust)
 cat("\n tests of autocorrelation of the residuals : \n")
 print(pvals)}
 ```
-
-
+We apply this function to the 3 models left
 ```{r}
 estimation <- arma21
 arimafit(estimation)
@@ -185,29 +201,35 @@ ar1ma2 <- estimation
 estimation <- arma02; arimafit(estimation)
 ma2 <- estimation
 ```
-
+To choose between the 3 valid and well-adjusted models, we use the BIC and AIC :
 ```{r}
 models <- c("ma2","ar1ma2","ar2ma1"); names(models) <- models
 apply(as.matrix(models),1, function(m) c("AIC"=AIC(get(m)), "BIC"=BIC(get(m))))
 ```
-Le AIC le plus faible est celui de ARMA(1,2) et le BIC le plus faible est celui de MA(2).
+The lowest AIC is the ARMA(1,2)'s one and the lowest BIC is the MA(2)'s one.
 ```{r}
-# Différence des AIC :
+# Difference of AIC :
 -1095.129 - (-1097.910)
-# Différence des BIC
+# Difference of BIC
 -1077.829 - (-1079.064)
 ```
-La différence des AIC est plus élevée, on conserve donc ARMA(1,2).
+The difference of AIC is higher than the difference of BIC, so we choose ARMA(1,2).
 
 
+### 5. Write the ARIMA(p,d,q) model for the chosen series.
+
+As the first difference gives us an ARMA(1,2), we will choose for the log(IPI) a SARIMA(1,1,2).
 ```{r}
+# To check this choice, we'll observe the validity and significance :
 estimation <- arima(valeurs_mensuelles$log_value,c(1,1,2))
 arimafit(estimation)
 ```
-On voit que le modèle fit bien avec un SARIMA(1,1,2).
+We observe that the series is well fitted with a SARIMA(1,1,2).
 
 
-### Partie 3
+### Part 3 : Prediction
+
+
 
 
 
